@@ -44,6 +44,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <string>
+#include <filesystem>
 #include <unordered_map>
 
 #include "y.tab.h"
@@ -659,9 +660,39 @@ do_before_depend(FILE *fp)
 		putc('\n', fp);
 }
 
+// static void
+// do_objs(FILE *fp)
+// {
+// 	struct file_list *tp;
+// 	int lpos, len;
+// 	char *cp, och, *sp;
+
+// 	fprintf(fp, "OBJS=");
+// 	lpos = 6;
+// 	STAILQ_FOREACH(tp, &ftab, f_next) {
+// 		if (tp->f_flags & NO_OBJ)
+// 			continue;
+// 		sp = tail(tp->f_fn);
+// 		cp = sp + (len = strlen(sp)) - 1;
+// 		och = *cp;
+// 		*cp = 'o';
+// 		len += strlen(tp->f_objprefix);
+// 		if (len + lpos > 72) {
+// 			lpos = 8;
+// 			fprintf(fp, "\\\n\t");
+// 		}
+// 		fprintf(fp, "%s%s ", tp->f_objprefix, sp);
+// 		lpos += len + 1;
+// 		*cp = och;
+// 	}
+// 	if (lpos != 8)
+// 		putc('\n', fp);
+// }
+
 static void
 do_objs(FILE *fp)
 {
+	std::filesystem::path file_path;
 	struct file_list *tp;
 	int lpos, len;
 	char *cp, och, *sp;
@@ -672,17 +703,15 @@ do_objs(FILE *fp)
 		if (tp->f_flags & NO_OBJ)
 			continue;
 		sp = tail(tp->f_fn);
-		cp = sp + (len = strlen(sp)) - 1;
-		och = *cp;
-		*cp = 'o';
+		len = strlen(sp);
+		file_path = sp;
 		len += strlen(tp->f_objprefix);
 		if (len + lpos > 72) {
 			lpos = 8;
 			fprintf(fp, "\\\n\t");
 		}
-		fprintf(fp, "%s%s ", tp->f_objprefix, sp);
+		fprintf(fp, "%s%s.o ", tp->f_objprefix, file_path.stem().c_str());
 		lpos += len + 1;
-		*cp = och;
 	}
 	if (lpos != 8)
 		putc('\n', fp);
@@ -747,10 +776,13 @@ do_rules(FILE *f)
 	char *compilewith;
 	char cmd[128];
 
+	std::filesystem::path file_path;
+
 	STAILQ_FOREACH(ftp, &ftab, f_next) {
 		if (ftp->f_warn)
 			fprintf(stderr, "WARNING: %s\n", ftp->f_warn);
 		cp = (np = ftp->f_fn) + strlen(ftp->f_fn) - 1;
+		file_path = np;
 		och = *cp;
 		if (ftp->f_flags & NO_IMPLCT_RULE) {
 			if (ftp->f_depends)
@@ -774,9 +806,11 @@ do_rules(FILE *f)
 					ftp->f_depends);
 			}
 			else {
-				fprintf(f, "%s%so: %s%s%c\n",
-					ftp->f_objprefix, tail(np),
+				fprintf(f, "%s%s.o: %s%s%c\n", ftp->f_objprefix, file_path.stem().c_str(),
 					ftp->f_srcprefix, np, och);
+				// fprintf(f, "%s%so: %s%s%c\n",
+				// 	ftp->f_objprefix, tail(np),
+				// 	ftp->f_srcprefix, np, och);
 			}
 		}
 		compilewith = ftp->f_compilewith;
